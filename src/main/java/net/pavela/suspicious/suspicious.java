@@ -18,6 +18,7 @@
 
 package net.pavela.suspicious;
 
+import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.Permission;
@@ -27,11 +28,16 @@ import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.PrivateChannel;
 import net.dv8tion.jda.api.events.ReadyEvent;
 import net.dv8tion.jda.api.events.interaction.ButtonClickEvent;
+import net.dv8tion.jda.api.events.interaction.SlashCommandEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.interactions.commands.build.CommandData;
+import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.interactions.components.Button;
+import net.dv8tion.jda.api.requests.restaction.CommandListUpdateAction;
 
 import javax.security.auth.login.LoginException;
+import java.awt.*;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
@@ -46,6 +52,8 @@ import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
+import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 
 public class suspicious extends ListenerAdapter {
     public static JDA jda;
@@ -65,6 +73,18 @@ public class suspicious extends ListenerAdapter {
         jda = JDABuilder.createDefault(args[0])
                 .addEventListeners(new suspicious()).build();
 
+        CommandListUpdateAction commands = jda.updateCommands();
+
+        commands.addCommands(
+                new CommandData("scan", "Scan a link to see if it is malicious")
+                        .addOptions(new OptionData(STRING, "link", "The user to ban")
+                                .setRequired(true)) // This command requires a parameter
+        );
+        commands.addCommands(
+                new CommandData("help", "Displays the help menu")
+        );
+//        commands.queue();
+
     }
 
     public static String getDomainName(String givenURL) throws URISyntaxException {
@@ -81,16 +101,13 @@ public class suspicious extends ListenerAdapter {
         List<String> susURLs = null;
         try {
             String pathToSearch = getDomainName(stringToSearch);
-            System.out.println(pathToSearch);
+            // System.out.println(pathToSearch);
 
             susURLs = Files.lines(fileName)
                     // findFirst() can be used get the first match and stop.
                     .filter(line -> line.contentEquals(pathToSearch.toLowerCase()))
                     .collect(Collectors.toList());
 
-//            for (String sus : susURLs ) {
-//                System.out.println(sus);
-//            }
 
         } catch (IOException | URISyntaxException e) {
             e.printStackTrace();
@@ -194,6 +211,41 @@ public class suspicious extends ListenerAdapter {
             channel.sendMessage("You do not have permission to run this command!").queue();
         }
 
+    }
+
+    @Override
+    public void onSlashCommand(SlashCommandEvent event) {
+        System.out.println(event.getName());
+        switch (event.getName()) {
+            case "scan":
+                String link = event.getOption("link").getAsString();
+
+                break;
+            case "help":
+                // Embed info: https://gist.github.com/zekroTJA/c8ed671204dafbbdf89c36fc3a1827e1
+                System.out.println("help command ran");
+                EmbedBuilder eb = new EmbedBuilder();
+
+                eb.setTitle("Suspicious? Help", null);
+                eb.setColor(Color.red);
+                eb.setDescription("I'm definitely not an imposter, If I was, then I wouldn't be one 'cause I'm not one");
+
+                eb.addField("/scan <link>", "Scan a link in blocklists and VirusTotal", false);
+                eb.addField("/help", "Shows this menu", false);
+
+                eb.addBlankField(false);
+
+                eb.setAuthor("Suspicious?", "https://pavela.net/", "https://pbs.twimg.com/profile_images/1404881883901554689/VR-3lR3B_400x400.jpg");
+                eb.setFooter(" Source code\nhttps://github.com/daniel071/suspicious");
+
+                eb.setImage("https://cdn2.unrealengine.com/amoguslandscape-2560x1440-2c59395f3208.jpg");
+                eb.setThumbnail("https://pbs.twimg.com/profile_images/1404881883901554689/VR-3lR3B_400x400.jpg");
+                event.replyEmbeds(eb.build()).queue();
+
+                break;
+            default:
+                event.reply("I can't handle that command right now :(").setEphemeral(true).queue();
+        }
     }
 
 }
