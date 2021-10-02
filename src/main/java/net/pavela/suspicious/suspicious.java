@@ -32,10 +32,12 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.components.Button;
 
 import javax.security.auth.login.LoginException;
+import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
@@ -55,8 +57,8 @@ public class suspicious extends ListenerAdapter {
             "Avoid the URL and the message contents. If you wish to visit the link, do so using the Tor " +
             "browser and do not download anything or enter any personal info. Please use your common sense!";
 
-    public static String advertisementMessage = "⚠️ **The link in this message is known as an advertising link** ⚠️\n" +
-            "The link sent in the message above has been found in an advertising blocklist. The purpose of this link is to collect telemetry and serve advertisemsnts. Please use caution if browsing these links.";
+    public static String advertisementMessage = "⚠️ **The link in this message is an advertising link** ⚠️\n" +
+            "The link sent in the message above has been found in an advertising blocklist. The purpose of this link is to collect telemetry and serve advertisements. Please use caution if browsing these links.";
 
     public static void main(String[] args) throws LoginException {
         Map<String, String> env = System.getenv();
@@ -75,13 +77,13 @@ public class suspicious extends ListenerAdapter {
         return domain.startsWith("www.") ? domain.substring(4) : domain;
     }
 
-    public List<String> search(String fileName, String stringToSearch) {
+    public List<String> search(Path fileName, String stringToSearch) {
         List<String> susURLs = null;
         try {
             String pathToSearch = getDomainName(stringToSearch);
             System.out.println(pathToSearch);
 
-            susURLs = Files.lines(Paths.get(ClassLoader.getSystemResource(fileName).toURI()))
+            susURLs = Files.lines(fileName)
                     // findFirst() can be used get the first match and stop.
                     .filter(line -> line.contentEquals(pathToSearch.toLowerCase()))
                     .collect(Collectors.toList());
@@ -94,6 +96,28 @@ public class suspicious extends ListenerAdapter {
             e.printStackTrace();
         }
         return susURLs;
+    }
+
+    public boolean searchDirectory(String searchText, String directory) {
+        boolean status = false;
+        File dir = null;
+        try {
+            dir = new File(getClass().getResource(directory).toURI());
+        } catch (URISyntaxException e) {
+            e.printStackTrace();
+        }
+        File[] directoryListing = dir.listFiles();
+        if (directoryListing != null) {
+            for (File child : directoryListing) {
+                //System.out.println(child.getAbsolutePath());
+                if (!search(Paths.get(child.getAbsolutePath()), searchText).isEmpty()) {
+                    status = true;
+                };
+            }
+        } else {
+            System.out.println("Directory specified does not exist!");
+        }
+        return status;
     }
 
     @Override
@@ -126,20 +150,21 @@ public class suspicious extends ListenerAdapter {
 
 
             while (m.find()) {
-                List<String> search1 = search("blocklists/malicious/spam404.txt", m.group(0));
-                List<String> search2 = search("blocklists/malicious/urlhaus.txt", m.group(0));
-                //System.out.println(m.group(0));
-                if (!search1.isEmpty()) {
-                    malicious = true;
-                }
-                if (!search2.isEmpty()) {
-                    malicious = true;
-                }
+                malicious = searchDirectory(m.group(0), "/blocklists/malicious/");
+                advertising = searchDirectory(m.group(0), "/blocklists/advertising/");
                 sus.add(m.group(0));
             }
 
             if (malicious) {
                 event.getMessage().reply(maliciousMessage)
+                        .setActionRow(
+                                Button.danger("Delete", "Delete"),
+                                Button.secondary("Dismiss", "Dismiss")
+                        )
+                        .queue();
+            }
+            if (advertising) {
+                event.getMessage().reply(advertisementMessage)
                         .setActionRow(
                                 Button.danger("Delete", "Delete"),
                                 Button.secondary("Dismiss", "Dismiss")
