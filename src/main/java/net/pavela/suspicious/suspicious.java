@@ -20,18 +20,30 @@ package net.pavela.suspicious;
 
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
+import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.entities.ChannelType;
+import net.dv8tion.jda.api.entities.Message;
+import net.dv8tion.jda.api.entities.PrivateChannel;
 import net.dv8tion.jda.api.events.ReadyEvent;
+import net.dv8tion.jda.api.events.interaction.ButtonClickEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.interactions.components.Button;
 
 import javax.security.auth.login.LoginException;
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class suspicious extends ListenerAdapter {
     public static JDA jda;
@@ -42,6 +54,33 @@ public class suspicious extends ListenerAdapter {
         jda = JDABuilder.createDefault(args[0])
                 .addEventListeners(new suspicious()).build();
 
+    }
+
+    public static String getDomainName(String url) throws URISyntaxException {
+        URI uri = new URI(url);
+        String domain = uri.getHost();
+        return domain.startsWith("www.") ? domain.substring(4) : domain;
+    }
+
+    public List<String> search(String fileName, String stringToSearch) {
+        List<String> susURLs = null;
+        try {
+            String pathToSearch = getDomainName(stringToSearch);
+            System.out.println(pathToSearch);
+
+            susURLs = Files.lines(Paths.get(ClassLoader.getSystemResource(fileName).toURI()))
+                    // findFirst() can be used get get the first match and stop.
+                    .filter(line -> line.contains(pathToSearch.toLowerCase()))
+                    .collect(Collectors.toList());
+
+//            for (String sus : susURLs ) {
+//                System.out.println(sus);
+//            }
+
+        } catch (IOException | URISyntaxException e) {
+            e.printStackTrace();
+        }
+        return susURLs;
     }
 
     @Override
@@ -65,19 +104,58 @@ public class suspicious extends ListenerAdapter {
                     event.getTextChannel().getName(), event.getMember().getEffectiveName(),
                     event.getMessage().getContentDisplay());
 
+            boolean malicious = false;
+            boolean advertising = false;
+
             Pattern p = Pattern.compile(URL_REGEX);
             Matcher m = p.matcher(event.getMessage().getContentDisplay());
             List<String> sus = new ArrayList<>();
 
+
             while (m.find()) {
-                System.out.println(m.group(0));
+                List<String> search1 = search("blocklists/malicious/spam404.txt", m.group(0));
+                List<String> search2 = search("blocklists/malicious/urlhaus.txt", m.group(0));
+                //System.out.println(m.group(0));
+                if (!search1.isEmpty()) {
+                    malicious = true;
+                }
+                if (!search2.isEmpty()) {
+                    malicious = true;
+                }
                 sus.add(m.group(0));
             }
-            if (!sus.isEmpty()) {
-                event.getTextChannel().sendMessage("Oh my fucking god, did you just fucking post a link? I'm going to have to delete your reddit account! :angry:").queue();
-            }
 
+            if (malicious) {
+                event.getMessage().reply("Oh my fucking god, did you just fucking post a link? I'm going to have to delete your reddit account! :angry:")
+                        .setActionRow(
+                                Button.danger("Delete", "Delete"),
+                                Button.secondary("Dismiss", "Dismiss")
+                        )
+                        .queue();
+            }
         }
+    }
+
+    @Override
+    public void onButtonClick(ButtonClickEvent event) {
+        System.out.println(event.getMember().getEffectiveName());
+        if (event.getMember().hasPermission(Permission.MESSAGE_MANAGE)) {
+            if (event.getComponentId().equals("Delete")) {
+                event.deferEdit().queue();
+                Message message = event.getChannel().retrieveMessageById(event.getMessageId()).complete();
+                message.getReferencedMessage().delete().queue();
+                event.getMessage().delete().queue();
+
+            } else if (event.getComponentId().equals("Dismiss")) {
+                event.deferEdit().queue();
+                event.getMessage().delete().queue();
+            }
+        } else {
+            event.deferEdit().queue();
+            PrivateChannel channel = event.getUser().openPrivateChannel().complete();
+            channel.sendMessage("You do not have permission to run that command!").queue();
+        }
+
     }
 
 }
