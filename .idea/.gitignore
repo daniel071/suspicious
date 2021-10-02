@@ -2,6 +2,7 @@
 /shelf/
 /out/
 /workspace.xml
+/target/
 
 # Compiled class file
 *.class
