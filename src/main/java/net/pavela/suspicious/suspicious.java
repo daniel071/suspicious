@@ -49,6 +49,15 @@ public class suspicious extends ListenerAdapter {
     public static JDA jda;
     public static final String URL_REGEX = "(http(s)?:\\/\\/.)?(www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{2,256}\\.[a-z]{2,6}\\b([-a-zA-Z0-9@:%_\\+.~#?&//=]*)";
 
+    public static String maliciousMessage = ":x: **The link in this message is __malicious__** :x:\n" +
+            "The link sent in the message above has been found to be in a **malicious** URL blocklist. " +
+            "This link could attempt to steal your data, run an exploit or get you to download malware. " +
+            "Avoid the URL and the message contents. If you wish to visit the link, do so using the Tor " +
+            "browser and do not download anything or enter any personal info. Please use your common sense!";
+
+    public static String advertisementMessage = "⚠️ **The link in this message is known as an advertising link** ⚠️\n" +
+            "The link sent in the message above has been found in an advertising blocklist. The purpose of this link is to collect telemetry and serve advertisemsnts. Please use caution if browsing these links.";
+
     public static void main(String[] args) throws LoginException {
         Map<String, String> env = System.getenv();
         jda = JDABuilder.createDefault(args[0])
@@ -56,7 +65,11 @@ public class suspicious extends ListenerAdapter {
 
     }
 
-    public static String getDomainName(String url) throws URISyntaxException {
+    public static String getDomainName(String givenURL) throws URISyntaxException {
+        String url = givenURL;
+        if (!url.toLowerCase().matches("^\\w+://.*")) {
+            url = "http://" + givenURL;
+        }
         URI uri = new URI(url);
         String domain = uri.getHost();
         return domain.startsWith("www.") ? domain.substring(4) : domain;
@@ -69,8 +82,8 @@ public class suspicious extends ListenerAdapter {
             System.out.println(pathToSearch);
 
             susURLs = Files.lines(Paths.get(ClassLoader.getSystemResource(fileName).toURI()))
-                    // findFirst() can be used get get the first match and stop.
-                    .filter(line -> line.contains(pathToSearch.toLowerCase()))
+                    // findFirst() can be used get the first match and stop.
+                    .filter(line -> line.contentEquals(pathToSearch.toLowerCase()))
                     .collect(Collectors.toList());
 
 //            for (String sus : susURLs ) {
@@ -126,7 +139,7 @@ public class suspicious extends ListenerAdapter {
             }
 
             if (malicious) {
-                event.getMessage().reply("Oh my fucking god, did you just fucking post a link? I'm going to have to delete your reddit account! :angry:")
+                event.getMessage().reply(maliciousMessage)
                         .setActionRow(
                                 Button.danger("Delete", "Delete"),
                                 Button.secondary("Dismiss", "Dismiss")
@@ -153,7 +166,7 @@ public class suspicious extends ListenerAdapter {
         } else {
             event.deferEdit().queue();
             PrivateChannel channel = event.getUser().openPrivateChannel().complete();
-            channel.sendMessage("You do not have permission to run that command!").queue();
+            channel.sendMessage("You do not have permission to run this command!").queue();
         }
 
     }
