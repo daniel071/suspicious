@@ -22,10 +22,7 @@ import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.Permission;
-import net.dv8tion.jda.api.entities.Activity;
-import net.dv8tion.jda.api.entities.ChannelType;
-import net.dv8tion.jda.api.entities.Message;
-import net.dv8tion.jda.api.entities.PrivateChannel;
+import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.events.ReadyEvent;
 import net.dv8tion.jda.api.events.interaction.ButtonClickEvent;
 import net.dv8tion.jda.api.events.interaction.SlashCommandEvent;
@@ -45,10 +42,8 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -129,7 +124,7 @@ public class suspicious extends ListenerAdapter {
                 //System.out.println(child.getAbsolutePath());
                 if (!search(Paths.get(child.getAbsolutePath()), searchText).isEmpty()) {
                     status = true;
-                };
+                }
             }
         } else {
             System.out.println("Directory specified does not exist!");
@@ -145,15 +140,15 @@ public class suspicious extends ListenerAdapter {
     }
 
     @Override
-    public void onMessageReceived(MessageReceivedEvent event)
-    {
-        if (event.isFromType(ChannelType.PRIVATE))
-        {
+    public void onMessageReceived(MessageReceivedEvent event) {
+        if (event.isFromType(ChannelType.PRIVATE)) {
             System.out.printf("[PM] %s: %s\n", event.getAuthor().getName(),
                     event.getMessage().getContentDisplay());
-        }
-        else
-        {
+        } else {
+            if (event.getMessage().getMentionedUsers().contains(jda.getSelfUser())) {
+                event.getMessage().reply("Run /help for more info.").queue();
+            }
+
             System.out.printf("[%s][%s] %s: %s\n", event.getGuild().getName(),
                     event.getTextChannel().getName(), event.getMember().getEffectiveName(),
                     event.getMessage().getContentDisplay());
@@ -163,13 +158,11 @@ public class suspicious extends ListenerAdapter {
 
             Pattern p = Pattern.compile(URL_REGEX);
             Matcher m = p.matcher(event.getMessage().getContentDisplay());
-            List<String> sus = new ArrayList<>();
 
 
             while (m.find()) {
                 malicious = searchDirectory(m.group(0), "/blocklists/malicious/");
                 advertising = searchDirectory(m.group(0), "/blocklists/advertising/");
-                sus.add(m.group(0));
             }
 
             if (malicious) {
@@ -215,15 +208,26 @@ public class suspicious extends ListenerAdapter {
 
     @Override
     public void onSlashCommand(SlashCommandEvent event) {
-        System.out.println(event.getName());
         switch (event.getName()) {
             case "scan":
+                boolean malicious = false;
+                boolean advertising = false;
                 String link = event.getOption("link").getAsString();
 
+                malicious = searchDirectory(link, "/blocklists/malicious/");
+                advertising = searchDirectory(link, "/blocklists/advertising/");
+
+                if (malicious) {
+                    event.reply(maliciousMessage).queue();
+                } else if (advertising) {
+                    event.reply(advertisementMessage).queue();
+                } else {
+                    event.reply(":white_check_mark: Link is not in blocklists").queue();
+                }
                 break;
+
             case "help":
                 // Embed info: https://gist.github.com/zekroTJA/c8ed671204dafbbdf89c36fc3a1827e1
-                System.out.println("help command ran");
                 EmbedBuilder eb = new EmbedBuilder();
 
                 eb.setTitle("Suspicious? Help", null);
