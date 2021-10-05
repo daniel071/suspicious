@@ -72,7 +72,7 @@ public class suspicious extends ListenerAdapter {
 
         commands.addCommands(
                 new CommandData("scan", "Scan a link to see if it is malicious")
-                        .addOptions(new OptionData(STRING, "link", "The user to ban")
+                        .addOptions(new OptionData(STRING, "link", "The link to scan")
                                 .setRequired(true)) // This command requires a parameter
         );
         commands.addCommands(
