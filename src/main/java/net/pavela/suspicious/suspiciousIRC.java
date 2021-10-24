@@ -1,16 +1,12 @@
 package net.pavela.suspicious;
 
-import net.dv8tion.jda.api.interactions.components.Button;
 import org.pircbotx.Configuration;
 import org.pircbotx.PircBotX;
 import org.pircbotx.delay.StaticDelay;
 import org.pircbotx.exception.IrcException;
 import org.pircbotx.hooks.Listener;
 import org.pircbotx.hooks.ListenerAdapter;
-import org.pircbotx.hooks.events.ConnectEvent;
-import org.pircbotx.hooks.events.DisconnectEvent;
-import org.pircbotx.hooks.events.MessageEvent;
-import org.pircbotx.hooks.events.PrivateMessageEvent;
+import org.pircbotx.hooks.events.*;
 import org.pircbotx.hooks.types.GenericMessageEvent;
 
 import java.io.File;
@@ -32,15 +28,15 @@ public class suspiciousIRC extends ListenerAdapter implements Runnable {
     public static final String URL_REGEX = "(http(s)?:\\/\\/.)?(www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{2,256}\\.[a-z]{2,6}\\b([-a-zA-Z0-9@:%_\\+.~#?&//=]*)";
 
     public static List<String> maliciousMessage = Arrays.asList("❌ \u000305\u0002The link in this message is \u001Fmalicious\u000F\u0002 ❌",
-            "The link sent in the message above has been found to be in a \u0002malicious\u0002 URL blocklist. ",
-            "This link could attempt to steal your data, run an exploit or get you to download malware. ",
-            "Avoid the URL and the message contents. If you wish to visit the link, do so using the Tor ",
-            "browser and do not download anything or enter any personal info. Please use your common sense!");
+            "\u000FThe link sent in the message above has been found to be in a \u0002malicious\u0002 URL blocklist. ",
+            "\u000FThis link could attempt to steal your data, run an exploit or get you to download malware. ",
+            "\u000FAvoid the URL and the message contents. If you wish to visit the link, do so using the Tor ",
+            "\u000Fbrowser and do not download anything or enter any personal info. Please use your common sense!");
 
     public static List<String> advertisementMessage = Arrays.asList("⚠️ \u000308\u0002The link in this message is an advertising link ⚠ ️️",
-            "The link sent in the message above has been found in an advertising blocklist. ",
-            "The purpose of this link is to collect telemetry and serve advertisements. ",
-            "Please use caution if browsing these links.");
+            "\u000FThe link sent in the message above has been found in an advertising blocklist. ",
+            "\u000FThe purpose of this link is to collect telemetry and serve advertisements. ",
+            "\u000FPlease use caution if browsing these links.");
 
 
     public static String getDomainName(String givenURL) throws URISyntaxException {
@@ -126,9 +122,6 @@ public class suspiciousIRC extends ListenerAdapter implements Runnable {
             event.respond("\u0002\u000308✅ ?help\u000F displays this menu");
             event.respond("\u0002\u000308✅ ?scan <url>\u000F checks if <url> is in any malicious or advertising blocklists");
         }
-        if (event.getMessage().startsWith("?scan")) {
-            event.respond("Feature not yet implemented.");
-        }
 
         boolean malicious = false;
         boolean advertising = false;
@@ -153,10 +146,18 @@ public class suspiciousIRC extends ListenerAdapter implements Runnable {
             }
         }
 
+        if (event.getMessage().startsWith("?scan")) {
+            if (!malicious & !advertising) {
+                event.respond("✅\u000303\u0002 Link has not been found in blocklists!");
+            }
+        }
     }
 
     @Override
-    public void onPrivateMessage(PrivateMessageEvent event) {
+    public void onInvite(InviteEvent event) {
+        System.out.println("Joining channel:");
+        System.out.println(event.getChannel());
+        bot.sendIRC().joinChannel(event.getChannel());
     }
 
     @Override
