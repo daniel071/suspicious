@@ -1,5 +1,6 @@
 package net.pavela.suspicious;
 
+import org.pircbotx.Channel;
 import org.pircbotx.Configuration;
 import org.pircbotx.PircBotX;
 import org.pircbotx.delay.StaticDelay;
@@ -166,7 +167,14 @@ public class suspiciousIRC extends ListenerAdapter implements Runnable {
             save(fileName);
         }
         if (event.getMessage().startsWith("?list")) {
-            bot.sendIRC().listChannels();
+            List<String> currentChannels = new ArrayList<String>();
+            for (Channel channel : bot.getUserBot().getChannels()) {
+                 currentChannels.add(channel.getName());
+            }
+
+            String listString = currentChannels.stream().map(Object::toString)
+                    .collect(Collectors.joining(", "));
+            event.respond(String.format("Channels: %s", listString));
         }
 
         boolean malicious = false;
@@ -226,6 +234,7 @@ public class suspiciousIRC extends ListenerAdapter implements Runnable {
         }
 
     }
+
 
     @Override
     public void run() {
