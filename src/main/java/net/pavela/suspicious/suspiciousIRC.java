@@ -147,6 +147,20 @@ public class suspiciousIRC extends ListenerAdapter implements Runnable {
             event.respond("\u000303\u0002Commands:");
             event.respond("\u0002\u000308✅ ?help\u000F displays this menu");
             event.respond("\u0002\u000308✅ ?scan <url>\u000F checks if <url> is in any malicious or advertising blocklists");
+            event.respond("\u0002\u000308✅ ?join <channel>\u000F joins a channel, can also join using /invite");
+        }
+        if (event.getMessage().startsWith("?join")) {
+            event.respond("✅ Joining channel");
+            String tempChannel = event.getMessage().replace("?join ", "");
+            System.out.println("Joining channel:");
+            System.out.println(tempChannel);
+            bot.sendIRC().joinChannel(tempChannel);
+            Channels.add(tempChannel);
+            try {
+                save(fileName);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
 
         boolean malicious = false;
