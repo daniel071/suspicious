@@ -9,13 +9,13 @@ import org.pircbotx.hooks.ListenerAdapter;
 import org.pircbotx.hooks.events.*;
 import org.pircbotx.hooks.types.GenericMessageEvent;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -38,6 +38,23 @@ public class suspiciousIRC extends ListenerAdapter implements Runnable {
             "\u000FThe purpose of this link is to collect telemetry and serve advertisements. ",
             "\u000FPlease use caution if browsing these links.");
 
+
+    public static List<String> Channels = new ArrayList<String>();
+
+    public static String fileName;
+
+    public static void save(String fileName) throws IOException {
+        FileOutputStream fout= new FileOutputStream(fileName);
+        ObjectOutputStream oos = new ObjectOutputStream(fout);
+        oos.writeObject(Channels);
+        fout.close();
+    }
+    public static void read(String fileName) throws IOException, ClassNotFoundException {
+        FileInputStream fin= new FileInputStream (fileName);
+        ObjectInputStream ois = new ObjectInputStream(fin);
+        Channels = (ArrayList<String>)ois.readObject();
+        fin.close();
+    }
 
     public static String getDomainName(String givenURL) throws URISyntaxException {
         String url = givenURL;
@@ -97,7 +114,6 @@ public class suspiciousIRC extends ListenerAdapter implements Runnable {
             Configuration configuration = new Configuration.Builder()
                     .setName(args[0]) // Set the nick of the bot.
                     .addServer(args[1]) // Join the Libera.chat network by default.
-                    .addAutoJoinChannel(args[2]) // Join the test channel.
                     .setMessageDelay(new StaticDelay(500L)) // half a second delay
                     .addListener((Listener) new suspiciousIRC()) // Add our listener that will be called on Events
                     .setAutoReconnect(true)
@@ -105,9 +121,19 @@ public class suspiciousIRC extends ListenerAdapter implements Runnable {
 
             //Create our bot with the configuration
             bot = new PircBotX(configuration);
+
+            fileName = args[2];
+            try {
+                read(fileName);
+            } catch (FileNotFoundException | EOFException e) {
+                File file = new File(fileName);
+                file.createNewFile();
+            }
+
+
             //Connect to the server
             bot.startBot();
-        } catch (IOException | IrcException e) {
+        } catch (IOException | IrcException | ClassNotFoundException e) {
             e.printStackTrace();
         }
     }
@@ -158,11 +184,20 @@ public class suspiciousIRC extends ListenerAdapter implements Runnable {
         System.out.println("Joining channel:");
         System.out.println(event.getChannel());
         bot.sendIRC().joinChannel(event.getChannel());
+        Channels.add(event.getChannel());
+        try {
+            save(fileName);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
     public void onConnect(ConnectEvent event){
         System.out.println("Connected!");
+        for (String channel : Channels) {
+            bot.sendIRC().joinChannel(channel);
+        }
     }
 
     @Override
