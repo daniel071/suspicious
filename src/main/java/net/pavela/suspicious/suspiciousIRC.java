@@ -18,6 +18,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -43,11 +44,16 @@ public class suspiciousIRC extends ListenerAdapter implements Runnable {
 
     public static String fileName;
 
-    public static void save(String fileName) throws IOException {
-        FileOutputStream fout= new FileOutputStream(fileName);
-        ObjectOutputStream oos = new ObjectOutputStream(fout);
-        oos.writeObject(Channels);
-        fout.close();
+    public static void save(String fileName) {
+        try {
+            FileOutputStream fout= new FileOutputStream(fileName);
+            ObjectOutputStream oos = new ObjectOutputStream(fout);
+            oos.writeObject(Channels);
+            fout.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
     }
     public static void read(String fileName) throws IOException, ClassNotFoundException {
         FileInputStream fin= new FileInputStream (fileName);
@@ -148,6 +154,7 @@ public class suspiciousIRC extends ListenerAdapter implements Runnable {
             event.respond("\u0002\u000308✅ ?help\u000F displays this menu");
             event.respond("\u0002\u000308✅ ?scan <url>\u000F checks if <url> is in any malicious or advertising blocklists");
             event.respond("\u0002\u000308✅ ?join <channel>\u000F joins a channel, can also join using /invite");
+            event.respond("\u0002\u000308✅ ?list\u000F displays all channels the bot is in");
         }
         if (event.getMessage().startsWith("?join")) {
             event.respond("✅ Joining channel");
@@ -156,11 +163,10 @@ public class suspiciousIRC extends ListenerAdapter implements Runnable {
             System.out.println(tempChannel);
             bot.sendIRC().joinChannel(tempChannel);
             Channels.add(tempChannel);
-            try {
-                save(fileName);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            save(fileName);
+        }
+        if (event.getMessage().startsWith("?list")) {
+            bot.sendIRC().listChannels();
         }
 
         boolean malicious = false;
@@ -199,11 +205,7 @@ public class suspiciousIRC extends ListenerAdapter implements Runnable {
         System.out.println(event.getChannel());
         bot.sendIRC().joinChannel(event.getChannel());
         Channels.add(event.getChannel());
-        try {
-            save(fileName);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        save(fileName);
     }
 
     @Override
@@ -212,6 +214,17 @@ public class suspiciousIRC extends ListenerAdapter implements Runnable {
         for (String channel : Channels) {
             bot.sendIRC().joinChannel(channel);
         }
+    }
+
+    @Override
+    public void onKick(KickEvent event){
+        // If we got kicked from a channel, remember to not rejoin it automatically
+        if (Objects.equals(event.getRecipient().getNick(), bot.getNick())) {
+            Channels.removeIf(channel -> channel.equals(event.getChannel().getName()));
+            System.out.println(String.format("%s has kicked us from %s for reason %s", event.getUser().getNick(), event.getChannel().getName(), event.getReason()));
+            save(fileName);
+        }
+
     }
 
     @Override
